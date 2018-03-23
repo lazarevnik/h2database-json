@@ -169,6 +169,7 @@ public class Parser {
             CHAR_SPECIAL_2 = 6;
     private static final int CHAR_STRING = 7, CHAR_DOT = 8,
             CHAR_DOLLAR_QUOTED_STRING = 9;
+    private static final int JSON_PROCESSING = 10;
 
     // this are token types
     private static final int KEYWORD = 1, IDENTIFIER = 2, PARAMETER = 3,
@@ -182,6 +183,18 @@ public class Parser {
     private static final int CURRENT_TIMESTAMP = 21, CURRENT_DATE = 22,
             CURRENT_TIME = 23, ROWNUM = 24;
     private static final int SPATIAL_INTERSECTS = 25;
+    
+    private static final int JSON_GET = 26;					// -> [int, text]
+    private static final int JSON_GET_TEXT = 27;			// ->> [int, text]
+    private static final int JSON_GET_AT_PATH = 28;			// #> [text[]]
+    private static final int JSON_GET_AT_PATH_TEXT = 29;	// #>> [text[]]
+    private static final int JSON_DOES_CONTAINS = 30;		// @> | <@ [jsonb]
+    private static final int JSON_STRING_EXISTS = 31;		// ? [text]
+    private static final int JSON_STRINGS_EXISTS_ANY = 32;	// ?| [text[]]
+    private static final int JSON_STRINGS_EXISTS_ALL = 33;	// ?& [text[]]
+    private static final int JSON_CONCAT = 34;				// || [jsonb]
+    private static final int JSON_DELETE = 35;				// - [text, integer]
+    private static final int JSON_DELETE_PATH = 36;			// #- [text[]]
 
     private static final Comparator<TableFilter> TABLE_FILTER_COMPARATOR =
             new Comparator<TableFilter>() {
@@ -2974,6 +2987,18 @@ public class Parser {
                     Expression[] array = new Expression[list.size()];
                     list.toArray(array);
                     r = new ExpressionList(array);
+                } else if (readIf("->>")){
+                	r = readExpression();
+                	
+//                	if(readIf("->>")) {
+//                		ArrayList<Expression> list = New.arrayList();
+//                		list.add(r);
+//                		while (!readIf(",") || !(readIf(")"))) {
+//                			r = readExpression();
+//                			list.add(r);
+//                		}
+//                	}
+                	read(")");
                 } else {
                     read(")");
                 }
@@ -3028,6 +3053,10 @@ public class Parser {
             r = ValueExpression.get(currentValue);
             read();
             break;
+        case JSON_GET_TEXT:
+        	r = ValueExpression.get(currentValue);
+        	read();
+        	break;
         default:
             throw getSyntaxError();
         }
@@ -3066,6 +3095,7 @@ public class Parser {
         }
         return r;
     }
+    
 
     private Expression readCase() {
         if (readIf("END")) {
@@ -3291,6 +3321,8 @@ public class Parser {
     }
 
     private void read() {
+    	
+    	
         currentTokenQuoted = false;
         if (expectedList != null) {
             expectedList.clear();
@@ -3460,6 +3492,14 @@ public class Parser {
             currentTokenType = END;
             parseIndex = i;
             return;
+        case JSON_PROCESSING:
+        	while(types[i] == JSON_PROCESSING) {
+        		i++;
+        	}
+        	currentToken = sqlCommand.substring(start, i);
+            currentTokenType = getJsonType(currentToken);
+            parseIndex = i;
+            return;
         default:
             throw getSyntaxError();
         }
@@ -3607,6 +3647,10 @@ public class Parser {
                         command[i++] = ' ';
                         checkRunOver(i, len, startLoop);
                     }
+                } else if (i < len - 2 && command[i + 1] == '>' && command[i + 2] == '>') {
+                	i += 2;
+                	checkRunOver(i, len, i - 2);
+                	type = JSON_PROCESSING;
                 } else {
                     type = CHAR_SPECIAL_1;
                 }
@@ -3743,6 +3787,10 @@ public class Parser {
                 }
             }
             types[i] = type;
+            if(type == JSON_PROCESSING) {
+            	types[i - 1] = type;
+            	types[i - 2] = type;
+            }
             lastType = type;
         }
         sqlCommandChars = command;
@@ -3750,6 +3798,11 @@ public class Parser {
         characterTypes = types;
         if (changed) {
             sqlCommand = new String(command);
+        }
+//        System.out.println("command: ");
+        
+        for (int i = 0; i < types.length; i++) {
+        	System.out.println("i: " + i + " types[i]: " + types[i] + " sqlCommand[i]: " + sqlCommandChars[i]);
         }
         parseIndex = 0;
     }
@@ -3827,11 +3880,6 @@ public class Parser {
                     return KEYWORD;
                 }
                 break;
-            case '|':
-                if ("||".equals(s)) {
-                    return STRING_CONCAT;
-                }
-                break;
             case '&':
                 if ("&&".equals(s)) {
                     return SPATIAL_INTERSECTS;
@@ -3840,6 +3888,58 @@ public class Parser {
             }
         }
         throw getSyntaxError();
+    }
+    
+    private int getJsonType(String s) {
+    	System.out.println("GET JSON TYPE OF: " + s);
+    	char c0 = s.charAt(0);
+    	switch(c0) {
+    	case '-':
+    		if ("->".equals(s)) {
+    			return JSON_GET;
+    		} else if ("->>".equals(s)) {
+    			return JSON_GET_TEXT;
+    		} else if ("-".equals(s)) {
+    			return JSON_DELETE;
+    		}
+    		break;
+    	case '#':
+    		if ("#>".equals(s)) {
+    			return JSON_GET_AT_PATH;
+    		} else if ("#>>".equals(s)) {
+    			return JSON_GET_AT_PATH_TEXT;
+    		} else if ("#-".equals(s)) {
+    			return JSON_DELETE_PATH;
+    		}
+    		break;
+    	case '@':
+    		if("@>".equals(s)) {
+    			return JSON_DOES_CONTAINS;
+    		}
+    		break;
+    	case '<':
+    		if("<@".equals(s)) {
+    			return JSON_DOES_CONTAINS;
+    		}
+    		break;
+    	case '?':
+    		if ("?".equals(s)) {
+    			return JSON_STRING_EXISTS;
+    		} else if ("?|".equals(s)) {
+    			return JSON_STRINGS_EXISTS_ANY;
+    		} else if ("?&".equals(s)) {
+    			return JSON_STRINGS_EXISTS_ALL;
+    		}
+    		break;
+    	case '|':
+    		if ("||".equals(s)) {
+    			return JSON_CONCAT;
+    		}
+    		break;
+    	default:
+    		break;
+    	}
+		throw getSyntaxError();
     }
 
     private int getTokenType(String s) {
