@@ -2987,17 +2987,10 @@ public class Parser {
                     Expression[] array = new Expression[list.size()];
                     list.toArray(array);
                     r = new ExpressionList(array);
+                // Now can be readed only "->>"
+                // Others whould be added when driver understands json
                 } else if (readIf("->>")){
                 	r = readExpression();
-                	
-//                	if(readIf("->>")) {
-//                		ArrayList<Expression> list = New.arrayList();
-//                		list.add(r);
-//                		while (!readIf(",") || !(readIf(")"))) {
-//                			r = readExpression();
-//                			list.add(r);
-//                		}
-//                	}
                 	read(")");
                 } else {
                     read(")");
