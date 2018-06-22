@@ -52,8 +52,8 @@ public class Build extends BuildBase {
         downloadUsingMaven("ext/derbynet-10.10.1.1.jar",
                 "org/apache/derby", "derbynet", "10.10.1.1",
                 "912b08dca73663d4665e09cd317be1218412d93e");
-        downloadUsingMaven("ext/postgresql-9.4.1209.jre6.jar",
-                "org.postgresql", "postgresql", "9.4.1209.jre6",
+        downloadUsingMaven("ext/postgresql-42.1.4.jar",
+                "org.postgresql", "postgresql", "42.1.4",
                 "2ed7a5a8c952d9ea18af92efea7e56ef854abfea");
         downloadUsingMaven("ext/mysql-connector-java-5.1.6.jar",
                 "mysql", "mysql-connector-java", "5.1.6",
@@ -125,7 +125,8 @@ public class Build extends BuildBase {
                 "30a40933caf67d88d9e75957950ccf353b181ab7");
         String cp = "temp" + File.pathSeparator + "bin" +
             File.pathSeparator + "ext/emma-2.0.5312.jar" +
-            File.pathSeparator + "ext/postgresql-9.4.1209.jre6.jar" +
+            //File.pathSeparator + "ext/postgresql-9.4.1209.jre6.jar" +
+            File.pathSeparator + "ext.postgresql-42.1.4.jar" +
             File.pathSeparator + "ext/servlet-api-3.1.0.jar" +
             File.pathSeparator + "ext/lucene-core-3.6.2.jar" +
             File.pathSeparator + "ext/h2mig_pagestore_addon.jar" +
@@ -210,7 +211,13 @@ public class Build extends BuildBase {
                 File.pathSeparator + "ext/org.osgi.core-4.2.0.jar" +
                 File.pathSeparator + "ext/org.osgi.enterprise-4.2.0.jar" +
                 File.pathSeparator + "ext/jts-core-1.14.0.jar" +
-                File.pathSeparator + javaToolsJar;
+                File.pathSeparator + javaToolsJar +
+                File.pathSeparator + "ext/postgresql-42.1.4.jar"+
+//                File.pathSeparator + "ext/javax.json-1.0.jar" +
+//                File.pathSeparator + "ext/json-20180130.jar" +
+                File.pathSeparator + "ext/jackson-core-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-databind-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-annotations-2.9.5.jar";
         FileList files;
         if (clientOnly) {
             files = files("src/main/org/h2/Driver.java");
@@ -318,6 +325,25 @@ public class Build extends BuildBase {
         downloadOrVerify("ext/junit-4.12.jar",
                 "junit", "junit", "4.12",
                 "2973d150c0dc1fefe998f834810d68f278ea58ec", offline);
+        downloadOrVerify("ext/postgresql-42.1.4.jar",
+                "org.postgresql", "postgresql", "42.1.4",
+                "1c7788d16b67d51f2f38ae99e474ece968bf715a", offline);
+//        downloadOrVerify("ext/javax.json-1.0.jar",
+//                "javax.json", "javax.json-api", "1.0",
+//                "a74939ecbf7294b40accb4048929577f5ddcee2", offline);
+//        downloadOrVerify("ext/json-20180130.jar",
+//        		"org.json", "json", "20180130",
+//        		"26ba2ec0e791a32ea5dfbedfcebf36447ee5b12c", offline);
+        downloadOrVerify("ext/jackson-core-2.9.5.jar",
+        		"com.fasterxml.jackson.core", "jackson-core", "2.9.5",
+        		"a22ac51016944b06fd9ffbc9541c6e7ce5eea117", offline);
+        downloadOrVerify("ext/jackson-databind-2.9.5.jar",
+        		"com.fasterxml.jackson.core", "jackson-databind", "2.9.5",
+        		"3490508379d065fe3fcb80042b62f630f7588606", offline);
+        downloadOrVerify("ext/jackson-annotations-2.9.5.jar",
+        		"com.fasterxml.jackson.core", "jackson-annotations", "2.9.5",
+        		"9056ec9db21c57d43219a84bb18c129ae51c6a5d", offline);
+        
     }
 
     private void downloadOrVerify(String target, String group, String artifact,
@@ -596,7 +622,12 @@ public class Build extends BuildBase {
                 "org.h2.tools", "org.h2.api", "org.h2.engine", "org.h2.fulltext",
                 "-classpath",
                 "ext/lucene-core-3.6.2.jar" +
-                File.pathSeparator + "ext/jts-core-1.14.0.jar",
+                File.pathSeparator + "ext/jts-core-1.14.0.jar" +
+                File.pathSeparator + "ext/postgresql-42.1.4.jar" +
+//                File.pathSeparator + "ext/json-20180130.jar" +
+                File.pathSeparator + "ext/jackson-core-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-databind-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-annotations-2.9.5.jar",
                 "-docletpath", "bin" + File.pathSeparator + "temp",
                 "-doclet", "org.h2.build.doclet.Doclet");
         copy("docs/javadoc", files("src/docsrc/javadoc"), "src/docsrc/javadoc");
@@ -622,7 +653,13 @@ public class Build extends BuildBase {
                 File.pathSeparator + "ext/lucene-core-3.6.2.jar" +
                 File.pathSeparator + "ext/org.osgi.core-4.2.0.jar" +
                 File.pathSeparator + "ext/org.osgi.enterprise-4.2.0.jar" +
-                File.pathSeparator + "ext/jts-core-1.14.0.jar",
+                File.pathSeparator + "ext/jts-core-1.14.0.jar" +
+                File.pathSeparator + "ext/postgresql-42.1.4.jar"+
+//                File.pathSeparator + "ext/javax.json-1.0.jar" +
+//                File.pathSeparator + "ext/json-20180130.jar" +
+                File.pathSeparator + "ext/jackson-core-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-databind-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-annotations-2.9.5.jar",
                 "-subpackages", "org.h2",
                 "-exclude", "org.h2.test.jaqu:org.h2.jaqu");
 
@@ -637,7 +674,13 @@ public class Build extends BuildBase {
                 File.pathSeparator + "ext/lucene-core-3.6.2.jar" +
                 File.pathSeparator + "ext/org.osgi.core-4.2.0.jar" +
                 File.pathSeparator + "ext/org.osgi.enterprise-4.2.0.jar" +
-                File.pathSeparator + "ext/jts-core-1.14.0.jar",
+                File.pathSeparator + "ext/jts-core-1.14.0.jar" + 
+                File.pathSeparator + "ext/postgresql-42.1.4.jar"+
+//                File.pathSeparator + "ext/javax.json-1.0.jar" +
+//                File.pathSeparator + "ext/json-20180130.jar" +
+                File.pathSeparator + "ext/jackson-core-2.9.5.jar" + 
+                File.pathSeparator + "ext/jackson-databind-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-annotations-2.9.5.jar",
                 "-subpackages", "org.h2.mvstore",
                 "-exclude", "org.h2.mvstore.db");
 
@@ -652,7 +695,13 @@ public class Build extends BuildBase {
                 File.pathSeparator + "ext/lucene-core-3.6.2.jar" +
                 File.pathSeparator + "ext/org.osgi.core-4.2.0.jar" +
                 File.pathSeparator + "ext/org.osgi.enterprise-4.2.0.jar" +
-                File.pathSeparator + "ext/jts-core-1.14.0.jar",
+                File.pathSeparator + "ext/jts-core-1.14.0.jar" + 
+                File.pathSeparator + "ext/postgresql-42.1.4.jar"+
+//                File.pathSeparator + "ext/javax.json-1.0.jar" +
+//                File.pathSeparator + "ext/json-20180130.jar" +
+                File.pathSeparator + "ext/jackson-core-2.9.5.jar" + 
+                File.pathSeparator + "ext/jackson-databind-2.9.5.jar" +
+                File.pathSeparator + "ext/jackson-annotations-2.9.5.jar",
                 "-subpackages", "org.h2",
                 "-exclude", "org.h2.test.jaqu:org.h2.jaqu",
                 "-package",
@@ -869,7 +918,13 @@ public class Build extends BuildBase {
             javadoc("-sourcepath", "src/main", "org.h2.tools", "org.h2.jmx",
                     "-classpath",
                     "ext/lucene-core-3.6.2.jar" +
-                    File.pathSeparator + "ext/jts-core-1.14.0.jar",
+                    File.pathSeparator + "ext/jts-core-1.14.0.jar" +
+                    File.pathSeparator + "ext/postgresql-42.1.4.jar"+
+//                    File.pathSeparator + "ext/javax.json-1.0.jar" +
+//                    File.pathSeparator + "ext/json-20180130.jar" +
+                    File.pathSeparator + "ext/jackson-core-2.9.5.jar" + 
+                    File.pathSeparator + "ext/jackson-databind-2.9.5.jar" +
+                    File.pathSeparator + "ext/jackson-annotations-2.9.5.jar",
                     "-docletpath", "bin" + File.pathSeparator + "temp",
                     "-doclet", "org.h2.build.doclet.ResourceDoclet");
         }
@@ -916,7 +971,8 @@ public class Build extends BuildBase {
     private void test(boolean fast) {
         downloadTest();
         String cp = "temp" + File.pathSeparator + "bin" +
-                File.pathSeparator + "ext/postgresql-9.4.1209.jre6.jar" +
+                //File.pathSeparator + "ext/postgresql-9.4.1209.jre6.jar" +
+        		File.pathSeparator + "ext/postgresql-42.1.4.jar" +
                 File.pathSeparator + "ext/servlet-api-3.1.0.jar" +
                 File.pathSeparator + "ext/lucene-core-3.6.2.jar" +
                 File.pathSeparator + "ext/h2mig_pagestore_addon.jar" +
