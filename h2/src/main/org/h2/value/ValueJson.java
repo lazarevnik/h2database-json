@@ -4,59 +4,44 @@ import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.json.JSONTokener;
-
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.TextNode;
-import com.fasterxml.jackson.databind.node.ValueNode;
 
 
 public class ValueJson extends Value {
 
-//	JSONObject jsonObj;
 	JsonNode jsonObj;
 	String jsonString;
-//	byte[] bytes;
-	
-	
-	public ValueJson(String str) {// throws IOException {
 
-		System.out.println("[MY ERROR] H2 ValueJson Constructor: getted  " + str);
-		System.out.println("[MY ERROR] H2 ValueJson Constructor: getted (bytes) " + str.getBytes().clone());
-//		JsonFactory fact = new JsonFactory();
-		ObjectMapper mapper = new ObjectMapper();
-		JsonNode json = null;
-		if(!str.contains("{")) {
-			try {
-				TextNode val = new TextNode(str);
-				json = (JsonNode) val;
-				System.out.println("[MY ERROR] H2 ValueJson Constructor: TextNode " + val + " DONE");
-			} catch (Exception e) {
-				System.out.println("[MY ERROR] H2 ValueJson Constructor: cannot do TextNode " + str);
-				e.printStackTrace();
-//				throw e;
-			}
+	
+	ValueJson (String str) throws IOException {
+		char c = str.charAt(0);
+		if ('{' == c) {
+			ObjectMapper mapper = new ObjectMapper();
+			ObjectNode node = (ObjectNode) mapper.readTree(str);
+			this.jsonObj = node;
+		} else if ('[' == c){
+			ObjectMapper mapper = new ObjectMapper();
+			ArrayNode node = (ArrayNode) mapper.readTree(str);
+			this.jsonObj = node;
 		} else {
-			try {
-				json = mapper.readTree(str.getBytes());
-			} catch (Exception e) {
-				System.out.println("[MY ERROR] H2 ValueJson Constructor: cannot parse " + str);
-				e.printStackTrace();
-//				throw e;
-			}
+			TextNode stringVal = new TextNode(str);
+			this.jsonObj = (JsonNode) stringVal; 
 		}
-		this.jsonObj = json;
-		this.jsonString = str;
+		this.jsonString = str.replaceAll(" ", "").replaceAll("\n","");
 	}
-//	public ValueJson(JsonNode json){
-//		this.jsonObj = json;
-//		this.jsonString = json.toString();
-//	}
+	
+	ValueJson(JsonNode json) {
+		this.jsonObj = json;
+		this.jsonString = json.toString().replaceAll(" ", "").replaceAll("\n","");
+	}
+	
+	public static ValueJson get(String str) throws IOException {
+		return new ValueJson(str);
+	}
 	
 	@Override
 	public Value convertTo(int targetType){
@@ -122,31 +107,23 @@ public class ValueJson extends Value {
 	public boolean equals(Object other) {
 		if (other instanceof ValueJson) {
 			return this.jsonObj.equals(((ValueJson) other).getObject());
-		}
-		if( other instanceof JsonNode) {
+		} else if (other instanceof JsonNode) {
 			return this.jsonObj.equals(other);
 		}
 		return false;
-	}
-	public static Value getTextField(ValueJson v1, ValueString v2) {
-		JsonNode json = v1.jsonObj;
-		String tag =  v2.getString();
-		return json.has(tag) ? ValueString.get(json.findValue(tag).asText()) : ValueString.get("");
-	}
-	
+	}	
 	
 	public static Value getTextField(Value v0, Value v1) throws IOException {
-		System.out.println("[MY COMMENT] H2 ValueJson.getTextField(value, value); v0.toString() = " + v0.toString() + " v1 = " + v1.toString());
-		System.out.println("[MY COMMENT] H2 ValueJson.getTextField(value, value); v0.getString() = " + v0.getString() + " v1 = " + v1.getString());
 		if(v0 instanceof ValueJson) {
 			JsonNode json = ((ValueJson) v0).jsonObj;
-			return json.has(v1.getString()) ? ValueString.get(json.get(v1.toString()).asText()) : ValueString.get("");
-		} else if (v0 instanceof ValueString) {
-			ObjectMapper mapper = new ObjectMapper();
-			JsonNode json = mapper.readTree(v0.getString());
-			return json.has(v1.getString()) ? ValueString.get(json.get(v1.getString()).asText()) : ValueString.get("");
+			String tag = v1.getString();
+			return json.has(v1.getString()) ? ValueString.get(json.get(tag).toString()) : ValueNull.INSTANCE;
+		} else if (v0.getType() == Value.STRING) {
+			JsonNode json = get(v0.getString()).jsonObj;
+			String tag = v1.getString();
+			return json.has(v1.getString()) ? ValueString.get(json.get(tag).toString()) : ValueNull.INSTANCE;
 		}
-		return ValueString.get("");
+		return ValueNull.INSTANCE;
 	}
 
 }
