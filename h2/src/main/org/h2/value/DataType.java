@@ -6,6 +6,7 @@
 package org.h2.value;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -352,6 +353,11 @@ public class DataType {
                 new String[]{"OTHER", "OBJECT", "JAVA_OBJECT"},
                 24
         );
+        add(Value.JSON, Types.OTHER, "Json",
+        		createString(false),
+        		new String[] {"JSON"},
+        		104
+        );
         add(Value.BLOB, Types.BLOB, "Blob",
                 createLob(),
                 new String[]{"BLOB", "TINYBLOB", "MEDIUMBLOB",
@@ -695,6 +701,18 @@ public class DataType {
                 }
                 return ValueGeometry.getFromGeometry(x);
             }
+            case Value.JSON: {
+            	Object x = rs.getObject(columnIndex);
+            	if(x == null) {
+            		return ValueNull.INSTANCE;
+            	}
+            	if(x instanceof String)
+					try {
+						return new ValueJson((String) x);
+					} catch (IOException e) {
+						throw DbException.throwInternalError("type="+type);
+					}
+            }
             default:
                 if (JdbcUtils.customDataTypesHandler != null) {
                     return JdbcUtils.customDataTypesHandler.getValue(type,
@@ -782,6 +800,8 @@ public class DataType {
             return ResultSet.class.getName();
         case Value.GEOMETRY:
             return GEOMETRY_CLASS_NAME;
+        case Value.JSON:
+        	return com.fasterxml.jackson.databind.JsonNode.class.getName();
         default:
             if (JdbcUtils.customDataTypesHandler != null) {
                 return JdbcUtils.customDataTypesHandler.getDataTypeClassName(type);
@@ -797,7 +817,7 @@ public class DataType {
      * @return the data type object
      */
     public static DataType getDataType(int type) {
-        if (type == Value.UNKNOWN) {
+    	if (type == Value.UNKNOWN) {
             throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?");
         }
         DataType dt = TYPES_BY_VALUE_TYPE.get(type);
@@ -834,6 +854,8 @@ public class DataType {
             case Types.JAVA_OBJECT:
                 if (sqlTypeName.equalsIgnoreCase("geometry")) {
                     return Value.GEOMETRY;
+                } else if (sqlTypeName.equalsIgnoreCase("json")) {
+                	return Value.JSON;
                 }
         }
         return convertSQLTypeToValueType(sqlType);
@@ -995,6 +1017,8 @@ public class DataType {
             return Value.TIMESTAMP;
         } else if (LocalDateTimeUtils.isOffsetDateTime(x)) {
             return Value.TIMESTAMP_TZ;
+        } else if (com.fasterxml.jackson.databind.JsonNode.class == x) {
+        	return Value.JSON;
         } else {
             if (JdbcUtils.customDataTypesHandler != null) {
                 return JdbcUtils.customDataTypesHandler.getTypeIdFromClass(x);

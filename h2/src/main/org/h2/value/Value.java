@@ -18,6 +18,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+
 import org.h2.api.ErrorCode;
 import org.h2.engine.Constants;
 import org.h2.engine.SysProperties;
@@ -177,7 +178,12 @@ public abstract class Value {
      * The number of value types.
      */
     public static final int TYPE_COUNT = ENUM;
-
+    
+    /**
+     * The json type.
+     */
+    public static final int JSON = 26;
+    
     private static SoftReference<Value[]> softCache =
             new SoftReference<Value[]>(null);
     private static final BigDecimal MAX_LONG_DECIMAL =
@@ -324,6 +330,8 @@ public abstract class Value {
             return 43_000;
         case GEOMETRY:
             return 44_000;
+        case JSON:
+            return 45_000;
         case ARRAY:
             return 50_000;
         case RESULT_SET:
@@ -986,6 +994,16 @@ public abstract class Value {
                 return ValueUuid.get(s);
             case GEOMETRY:
                 return ValueGeometry.get(s);
+            case JSON: {
+            	ValueJson json = null;
+            	try {
+					json = new ValueJson(s);
+				} catch (Exception e) {
+					throw DbException.get(
+							ErrorCode.DATA_CONVERSION_ERROR_1, e, getString());
+				}
+            	return json;
+            }
             default:
                 if (JdbcUtils.customDataTypesHandler != null) {
                     return JdbcUtils.customDataTypesHandler.convert(this, targetType);
