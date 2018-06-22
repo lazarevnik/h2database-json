@@ -3088,7 +3088,6 @@ public class Parser {
                 JavaFunction func = new JavaFunction(f, args);
                 r = func;
             } else {
-            	if(currentTokenType != IDENTIFIER)
                 Column col = parseColumnWithType(null);
                 Function function = Function.getFunction(database, "CAST");
                 function.setDataType(col);
