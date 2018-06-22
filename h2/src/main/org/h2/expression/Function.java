@@ -63,6 +63,7 @@ import org.h2.value.ValueBytes;
 import org.h2.value.ValueDate;
 import org.h2.value.ValueDouble;
 import org.h2.value.ValueInt;
+import org.h2.value.ValueJson;
 import org.h2.value.ValueLong;
 import org.h2.value.ValueNull;
 import org.h2.value.ValueResultSet;
@@ -139,6 +140,8 @@ public class Function extends Expression implements FunctionCall {
 
     private static final int VAR_ARGS = -1;
     private static final long PRECISION_UNKNOWN = -1;
+
+    public static final int JSON_GET_TEXT = 350;
 
     private static final HashMap<String, FunctionInfo> FUNCTIONS = New.hashMap();
     private static final HashMap<String, Integer> DATE_PART = New.hashMap();
@@ -486,6 +489,9 @@ public class Function extends Expression implements FunctionCall {
 
         // ON DUPLICATE KEY VALUES function
         addFunction("VALUES", VALUES, 1, Value.NULL, false, true, false);
+        
+        // JSON
+        addFunction("GET_JSON_FIELD", JSON_GET_TEXT, 2, Value.STRING);
     }
 
     protected Function(Database database, FunctionInfo info) {
@@ -1204,6 +1210,19 @@ public class Function extends Expression implements FunctionCall {
         Value v5 = getNullOrValue(session, args, values, 5);
         Value result;
         switch (info.type) {
+        case JSON_GET_TEXT:       	
+        	if(v0.getType() == Value.STRING || v0.getType() == Value.JSON) {
+        		Value res = null;
+				try {
+					res = ValueJson.getTextField(v0, v1);
+				} catch (IOException e) {
+					throw DbException.throwInternalError("type=" + info.type);
+				}
+        		result = res;
+        	} else {
+        		throw DbException.throwInternalError("type=" + info.type);
+        	}
+        	break;
         case ATAN2:
             result = ValueDouble.get(
                     Math.atan2(v0.getDouble(), v1.getDouble()));
