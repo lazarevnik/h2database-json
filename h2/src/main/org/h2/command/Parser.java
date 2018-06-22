@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+
 import org.h2.api.ErrorCode;
 import org.h2.api.Trigger;
 import org.h2.command.ddl.AlterIndexRename;
@@ -2937,6 +2938,13 @@ public class Parser {
                     } else {
                         r = new ExpressionColumn(database, null, null, name);
                     }
+                } else if(readIf("->")) {
+                	read();
+                	ExpressionColumn col = new ExpressionColumn(database, null, null, name);
+                	Function fun = Function.getFunction(database, "GET_JSON_FIELD");
+                	fun.setParameter(0, col);
+                	fun.setParameter(1, ValueExpression.get(currentValue));
+                	r = fun;
                 } else {
                     r = new ExpressionColumn(database, null, null, name);
                 }
@@ -2972,7 +2980,7 @@ public class Parser {
             if (readIf(")")) {
                 r = new ExpressionList(new Expression[0]);
             } else {
-                r = readExpression();
+                r = readExpression();	
                 if (readIf(",")) {
                     ArrayList<Expression> list = New.arrayList();
                     list.add(r);
@@ -2987,15 +2995,10 @@ public class Parser {
                     Expression[] array = new Expression[list.size()];
                     list.toArray(array);
                     r = new ExpressionList(array);
-                // Now can be readed only "->>"
-                // Others whould be added when driver understands json
-                } else if (readIf("->>")){
-                	r = readExpression();
-                	read(")");
                 } else {
                     read(")");
                 }
-            }
+            } 
             break;
         case TRUE:
             read();
@@ -3046,11 +3049,17 @@ public class Parser {
             r = ValueExpression.get(currentValue);
             read();
             break;
+        case JSON_GET:
+        	r = ValueExpression.get(currentValue);
+        	read();
+        	break;
         case JSON_GET_TEXT:
         	r = ValueExpression.get(currentValue);
         	read();
         	break;
         default:
+        	r = ValueExpression.get(currentValue);
+        	read();
             throw getSyntaxError();
         }
         if (readIf("[")) {
@@ -3079,6 +3088,7 @@ public class Parser {
                 JavaFunction func = new JavaFunction(f, args);
                 r = func;
             } else {
+            	if(currentTokenType != IDENTIFIER)
                 Column col = parseColumnWithType(null);
                 Function function = Function.getFunction(database, "CAST");
                 function.setDataType(col);
@@ -3088,7 +3098,7 @@ public class Parser {
         }
         return r;
     }
-    
+          
 
     private Expression readCase() {
         if (readIf("END")) {
@@ -3571,6 +3581,18 @@ public class Parser {
         currentValue = ValueDecimal.get(bd);
         currentTokenType = VALUE;
     }
+    
+    private String readJsonTag(int start) {
+    	char[] chars = sqlCommandChars;
+    	int[] types = characterTypes;
+    	int i = start;
+    	String res = "";
+    	if(types[i] == CHAR_STRING) i++;
+    	do {
+    		res += chars[i];
+    	} while(types[i++] != CHAR_STRING);
+    	return res;
+    }
 
     public Session getSession() {
         return session;
@@ -3641,9 +3663,11 @@ public class Parser {
                         checkRunOver(i, len, startLoop);
                     }
                 } else if (i < len - 2 && command[i + 1] == '>' && command[i + 2] == '>') {
-                	i += 2;
                 	checkRunOver(i, len, i - 2);
                 	type = JSON_PROCESSING;
+                } else if (i < len - 2 && command[i + 1] == '>' && command[i + 2] != '>') {
+                	checkRunOver(i, len, i - 1);
+                	type = types[i++] = JSON_PROCESSING;
                 } else {
                     type = CHAR_SPECIAL_1;
                 }
@@ -3780,10 +3804,6 @@ public class Parser {
                 }
             }
             types[i] = type;
-            if(type == JSON_PROCESSING) {
-            	types[i - 1] = type;
-            	types[i - 2] = type;
-            }
             lastType = type;
         }
         sqlCommandChars = command;
@@ -3791,11 +3811,6 @@ public class Parser {
         characterTypes = types;
         if (changed) {
             sqlCommand = new String(command);
-        }
-//        System.out.println("command: ");
-        
-        for (int i = 0; i < types.length; i++) {
-        	System.out.println("i: " + i + " types[i]: " + types[i] + " sqlCommand[i]: " + sqlCommandChars[i]);
         }
         parseIndex = 0;
     }
@@ -3878,13 +3893,16 @@ public class Parser {
                     return SPATIAL_INTERSECTS;
                 }
                 break;
+            case '-':
+            	if("->".equals(s)) {
+            		return JSON_GET;
+            	}
             }
         }
         throw getSyntaxError();
     }
     
     private int getJsonType(String s) {
-    	System.out.println("GET JSON TYPE OF: " + s);
     	char c0 = s.charAt(0);
     	switch(c0) {
     	case '-':
@@ -4198,7 +4216,7 @@ public class Parser {
     }
 
     private Column parseColumnWithType(String columnName) {
-        String original = currentToken;
+        String original = currentToken;        
         boolean regular = false;
         if (readIf("LONG")) {
             if (readIf("RAW")) {
