@@ -18,6 +18,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
@@ -63,6 +64,7 @@ import org.h2.value.ValueBytes;
 import org.h2.value.ValueDate;
 import org.h2.value.ValueDouble;
 import org.h2.value.ValueInt;
+import org.h2.value.ValueJavaObject;
 import org.h2.value.ValueJson;
 import org.h2.value.ValueLong;
 import org.h2.value.ValueNull;
@@ -71,6 +73,9 @@ import org.h2.value.ValueString;
 import org.h2.value.ValueTime;
 import org.h2.value.ValueTimestamp;
 import org.h2.value.ValueUuid;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * This class implements most built-in functions of this database.
@@ -141,7 +146,12 @@ public class Function extends Expression implements FunctionCall {
     private static final int VAR_ARGS = -1;
     private static final long PRECISION_UNKNOWN = -1;
 
-    public static final int JSON_GET_TEXT = 350;
+    public static final int JSON_GET_TEXT = 350, JSON_GET_OBJECT = 351,
+    		JSON_GET_TEXT_PATH = 352, JSON_GET_OBJECT_PATH = 353,
+    		JSON_EXISTS_PAIR = 354, JSON_EXISTS_KEY = 355,
+    		JSON_EXISTS_ANY_KEY = 356, JSON_EXISTS_KEYS = 357,
+    		JSON_CONCAT = 358, JSON_REMOVE_KEY = 359,
+    		JSON_REMOVE_KEYS = 360;
 
     private static final HashMap<String, FunctionInfo> FUNCTIONS = New.hashMap();
     private static final HashMap<String, Integer> DATE_PART = New.hashMap();
@@ -491,7 +501,17 @@ public class Function extends Expression implements FunctionCall {
         addFunction("VALUES", VALUES, 1, Value.NULL, false, true, false);
         
         // JSON
-        addFunction("GET_JSON_FIELD", JSON_GET_TEXT, 2, Value.STRING);
+        addFunction("GET_JSON_FIELD_AS_TEXT", JSON_GET_TEXT, 2, Value.STRING);
+        addFunction("GET_JSON_FIELD", JSON_GET_OBJECT, 2, Value.JSON);
+        addFunction("GET_JSON_TEXT_BY_PATH", JSON_GET_TEXT_PATH, 2, Value.STRING);
+        addFunction("GET_JSON_OBJECT_BY_PATH", JSON_GET_OBJECT_PATH, 2, Value.JSON);
+        addFunction("JSON_CONTAINS_PAIR", JSON_EXISTS_PAIR, 2, Value.BOOLEAN);
+        addFunction("JSON_CONTAINS_KEY", JSON_EXISTS_KEY, 2, Value.BOOLEAN);
+        addFunction("JSON_CONTAINS_ANY_KEY", JSON_EXISTS_ANY_KEY, 2, Value.BOOLEAN);
+        addFunction("JSON_CONTAINS_KEYS", JSON_EXISTS_KEYS, 2, Value.BOOLEAN);
+        addFunction("JSON_CONCAT", JSON_CONCAT, 2, Value.JSON);
+        addFunction("JSON_REMOVE", JSON_REMOVE_KEY, 2, Value.JSON);
+        addFunction("JSON_REMOVE_ALL", JSON_REMOVE_KEYS, 2, Value.JSON);
     }
 
     protected Function(Database database, FunctionInfo info) {
@@ -1210,19 +1230,134 @@ public class Function extends Expression implements FunctionCall {
         Value v5 = getNullOrValue(session, args, values, 5);
         Value result;
         switch (info.type) {
-        case JSON_GET_TEXT:       	
-        	if(v0.getType() == Value.STRING || v0.getType() == Value.JSON) {
-        		Value res = null;
-				try {
-					res = ValueJson.getTextField(v0, v1);
-				} catch (IOException e) {
-					throw DbException.throwInternalError("type=" + info.type);
-				}
-        		result = res;
-        	} else {
-        		throw DbException.throwInternalError("type=" + info.type);
+        case JSON_GET_TEXT : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		String key = v1.getString();
+        		result = json.has(key) ? ValueString.get(json.get(key).toString()) : ValueNull.INSTANCE;
+        		break;
         	}
-        	break;
+        }
+        case JSON_GET_OBJECT : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		String key = v1.getString();
+        		result = json.has(key) ? ValueJson.get(json.get(key)) : ValueNull.INSTANCE;
+        		break;
+        	}
+        }
+        case JSON_GET_TEXT_PATH : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		for(Value v : ((ValueArray) v1).getList()) {
+        			if (json.has(v.getString()))
+        				json = json.get(v.getString());
+       			 	else
+       			 		result = ValueNull.INSTANCE;
+        		}
+        		result = ValueString.get(json.toString());
+        		break;
+        	}
+        }
+        case JSON_GET_OBJECT_PATH : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		for(Value v : ((ValueArray) v1).getList()) {
+        			if (json.has(v.getString()))
+        				json = json.get(v.getString());
+       			 	else
+       			 		result = ValueNull.INSTANCE;
+        		}
+        		result = new ValueJson(json);
+        		break;
+        	}  
+        }
+        case JSON_EXISTS_PAIR : {
+        	if (v0.getType() == Value.JSON && v1.getType() == Value.JSON) {
+        		JsonNode first = ((ValueJson) v0).getObject();
+        		JsonNode second = ((ValueJson) v1).getObject();
+        		boolean exit = false;
+        		if (first.isObject() && second.isObject()) {
+            		result = ValueBoolean.get(false);
+        			ObjectNode obj1 = (ObjectNode) first;
+        			ObjectNode obj2 = (ObjectNode) second;
+        			Iterator<String> keys = obj2.fieldNames();
+        			while (keys.hasNext()) {
+        				String key = keys.next();
+        				if (!(obj1.has(key) && obj1.get(key).equals(obj2.get(key)))) {
+        					exit = true;
+        					break;
+        				}
+        			}
+        			if (!exit)
+        				result = ValueBoolean.get(true);
+        			break;
+        		} else {
+        			throw DbException.throwInternalError("json comparison implemented only for ObjectNodes");
+        		}
+        	}
+        }
+        case JSON_EXISTS_KEY : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		String key = v1.getString();
+        		result = json.has(key) ? ValueBoolean.get(true) : ValueBoolean.get(false);
+        		break;
+        	}
+        }
+        case JSON_EXISTS_ANY_KEY : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		result = ValueBoolean.get(false);
+        		for(Value v : ((ValueArray) v1).getList()) {
+        			 if (json.has(v.getString())) {
+        				 result = ValueBoolean.get(true);
+        				 break;
+        			 }
+        		}
+        		break;
+        	}
+        }
+        case JSON_EXISTS_KEYS : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		result = ValueBoolean.get(true);
+        		for(Value v : ((ValueArray) v1).getList()) {
+        			 if (!json.has(v.getString())) {
+        				 result = ValueBoolean.get(false);
+        				 break;
+        			 }
+        		}
+        		break;
+        	}
+        }
+        case JSON_CONCAT : {
+        	if (v0.getType() == Value.JSON && v1.getType() == Value.JSON) {
+        		JsonNode first = ((ValueJson) v0).getObject();
+        		JsonNode second = ((ValueJson) v1).getObject();
+        		if (first.isObject() && second.isObject()) {
+        			ObjectNode obj1 = (ObjectNode) first;
+        			ObjectNode obj2 = (ObjectNode) second;
+	        		result = new ValueJson(obj1.putAll(obj2));
+        		} else {
+        			throw DbException.throwInternalError("json concat implimented only for ObjectNodes");
+        		}
+        	}
+        }
+        case JSON_REMOVE_KEY : {
+        	if (v0.getType() == Value.JSON) {
+        		JsonNode json = ((ValueJson) v0).getObject();
+        		if (json.isObject()) {
+        			((ObjectNode) json).remove(v1.getString());
+        			result = new ValueJson(json);
+        		} else {
+        			throw DbException.throwInternalError("json remove implemented only for ObjectNodes");
+        		}
+        	}
+        }
+        case JSON_REMOVE_KEYS : {
+        	throw DbException.throwInternalError("Unimplemented");
+        }
         case ATAN2:
             result = ValueDouble.get(
                     Math.atan2(v0.getDouble(), v1.getDouble()));
@@ -2687,6 +2822,10 @@ public class Function extends Expression implements FunctionCall {
 
     public int getFunctionType() {
         return info.type;
+    }
+    
+    public int getReturnType() {
+    	return info.returnDataType;
     }
 
     @Override
