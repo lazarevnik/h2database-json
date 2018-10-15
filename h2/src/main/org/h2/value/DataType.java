@@ -706,12 +706,7 @@ public class DataType {
             	if(x == null) {
             		return ValueNull.INSTANCE;
             	}
-            	if(x instanceof String)
-					try {
-						return new ValueJson((String) x);
-					} catch (IOException e) {
-						throw DbException.throwInternalError("type="+type);
-					}
+           		return ValueJson.get((String) x);
             }
             default:
                 if (JdbcUtils.customDataTypesHandler != null) {

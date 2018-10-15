@@ -50,6 +50,7 @@ import org.h2.value.ValueTime;
 import org.h2.value.ValueTimestamp;
 import org.h2.value.ValueTimestampTimeZone;
 import org.h2.value.ValueUuid;
+import org.postgresql.util.PGobject;
 
 /**
  * A row type.
@@ -616,13 +617,9 @@ public class ValueDataType implements DataType {
             return ValueGeometry.get(b);
         }
         case Value.JSON: {
-        	try {
-        		String res = readString(buff);
-        		ValueJson json = ValueJson.get(res);
-        		return json;
-        	} catch (IOException e) {
-        		throw DbException.get(ErrorCode.FILE_CORRUPTED_1, "type: " + type);
-        	}
+       		String res = readString(buff);
+       		ValueJson json = ValueJson.get(res);
+       		return json;
         }
         case SPATIAL_KEY_2D:
             return getSpatialDataType().read(buff);
